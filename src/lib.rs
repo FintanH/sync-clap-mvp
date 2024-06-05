@@ -66,33 +66,41 @@ pub const DEFAULT_SYNC_TIMEOUT: time::Duration = time::Duration::from_secs(9);
 // NEW OUTPUT:
 // For `rad sync --help`:
 //
-// Usage: sync [OPTIONS] [COMMAND]
+// Sync repositories to and from the network
+//
+// Usage:
+//   rad sync [--fetch | --announce] [--rid <rid>] [--timeout <secs>] [--debug] [--seed <nid>]
+//   rad sync status [--sort-by <field>]
+//   rad sync --inventory
 
 // Commands:
 //   status
 //   help    Print this message or the help of the given subcommand(s)
 //
 // Options:
-//       --rid <RID>            Repository Identifier to be synchronized
+//       --rid <rid>            Repository Identifier to be synchronized
 //       --debug                Output debug information, if any
 //   -v, --verbose              Out verbose information, if any
 //       --fetch                When `--fetch` is specified, any number of seeds may be given using the `--seed` option, eg. `--seed <nid>@<addr>:<port>`
 //       --announce             When `--announce` is specified, this command will announce changes to the network. Can be used in tandem with `--fetch` to also fetch beforehand
 //       --inventory            If `--inventory` is specified, the node's inventory is announced to the network. This mode ignores the `--rid` argument
-//   -r, --replicas <REPLICAS>  Sync with at least N replicas [default: 3]
-//       --seed <SEEDS>         Sync with the given list of seeds
-//       --timeout <SECONDS>    How long to wait for syncing to complete [default: 9]
+//   -r, --replicas <replicas>  Sync with at least N replicas [default: 3]
+//       --seed <nid>           Sync with the given list of seeds
+//       --timeout <seconds>    How long to wait for syncing to complete [default: 9]
 //   -h, --help                 Print help
+//   -V, --version              Print version
 //
 // For `rad sync status --help`:
 //
-// Usage: sync status [OPTIONS]
+// Display the whether other nodes are synced our out-of-sync with this node's signed references
+//
+// Usage: rad sync status [--sort-by <field>]
 //
 // Options:
-//       --rid <RID>
+//       --rid <rid>
 //           Repository Identifier to be synchronized
-
-//       --sort-by <SORT_BY>
+//
+//       --sort-by <field>
 //           Sort by sync status
 //
 //           [default: status]
@@ -113,9 +121,12 @@ pub const DEFAULT_SYNC_TIMEOUT: time::Duration = time::Duration::from_secs(9);
 
 #[derive(Debug, Clone, PartialEq, Eq, Parser)]
 pub enum Operation {
+    /// Display the whether other nodes are synced our out-of-sync with this
+    /// node's signed references
+    #[command(override_usage = "rad sync status [--sort-by <field>]")]
     Status {
         /// Sort by sync status
-        #[arg(long, value_enum, default_value_t)]
+        #[arg(long, value_name = "field", value_enum, default_value_t)]
         sort_by: SortBy,
     },
 }
@@ -242,13 +253,13 @@ impl Default for SyncSettings {
 #[derive(Debug, Clone, PartialEq, Eq, Parser)]
 pub struct SyncSettingsArgs {
     /// Sync with at least N replicas.
-    #[arg(long, short, default_value_t = 3)]
+    #[arg(long, short, default_value_t = 3, value_name = "replicas")]
     pub replicas: usize,
     /// Sync with the given list of seeds.
-    #[arg(long = "seed", action = clap::ArgAction::Append)]
+    #[arg(long = "seed", action = clap::ArgAction::Append, value_name = "nid")]
     pub seeds: Vec<NodeId>,
     /// How long to wait for syncing to complete.
-    #[arg(long, value_name = "SECONDS", default_value_t = DEFAULT_SYNC_TIMEOUT.as_secs())]
+    #[arg(long, value_name = "seconds", default_value_t = DEFAULT_SYNC_TIMEOUT.as_secs())]
     pub timeout: u64,
 }
 
@@ -284,10 +295,21 @@ impl FromStr for NodeId {
     }
 }
 
+/// Sync repositories to and from the network
 #[derive(Debug, Parser)]
+#[command(name = "rad")]
+#[command(bin_name = "rad sync")]
+#[command(version = "1.0.0")]
+#[command(override_usage(
+    "
+  rad sync [--fetch | --announce] [--rid <rid>] [--timeout <secs>] [--debug] [--seed <nid>]
+  rad sync status [--sort-by <field>]
+  rad sync --inventory
+"
+))]
 pub struct Options {
     /// Repository Identifier to be synchronized
-    #[arg(long, global = true, value_name = "RID")]
+    #[arg(long, global = true, value_name = "rid")]
     pub rid: Option<RepoId>,
     /// Output debug information, if any
     #[arg(long, global = true)]
