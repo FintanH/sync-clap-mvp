@@ -253,7 +253,7 @@ impl Default for SyncSettings {
 #[derive(Debug, Clone, PartialEq, Eq, Parser)]
 pub struct SyncSettingsArgs {
     /// Sync with at least N replicas.
-    #[arg(long, short, default_value_t = 3, value_name = "replicas")]
+    #[arg(long, short, default_value_t = 3)]
     pub replicas: usize,
     /// Sync with the given list of seeds.
     #[arg(long = "seed", action = clap::ArgAction::Append, value_name = "nid")]
@@ -307,6 +307,7 @@ impl FromStr for NodeId {
   rad sync --inventory
 "
 ))]
+#[command(rename_all = "lowercase")]
 pub struct Options {
     /// Repository Identifier to be synchronized
     #[arg(long, global = true, value_name = "rid")]
