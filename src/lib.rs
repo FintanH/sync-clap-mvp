@@ -1,6 +1,6 @@
 use std::{convert::Infallible, str::FromStr, time};
 
-use clap::{Args, Parser, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 pub const DEFAULT_SYNC_TIMEOUT: time::Duration = time::Duration::from_secs(9);
 
@@ -119,11 +119,69 @@ pub const DEFAULT_SYNC_TIMEOUT: time::Duration = time::Duration::from_secs(9);
 //   -h, --help
 //           Print help (see a summary with '-h')
 
+const HELP_TEMPLATE: &str = r#"
+{name} {version}
+
+{about-with-newline}
+Usage
+
+{usage}
+
+Commands
+
+{subcommands}
+
+Options
+
+{options}
+{after-help}
+"#;
+
+const HELP_NO_COMMANDS: &str = r#"
+{name} {version}
+
+{about-with-newline}
+Usage
+
+{usage}
+
+Options
+
+{options}
+{after-help}
+"#;
+
+const SYNC_HELP: &str = r#"    By default, the current repository is synchronized both ways.
+    If an <rid> is specified, that repository is synced instead.
+
+    The process begins by fetching changes from connected seeds,
+    followed by announcing local refs to peers, thereby prompting
+    them to fetch from us.
+
+    When `--fetch` is specified, any number of seeds may be given
+    using the `--seed` option, eg. `--seed <nid>@<addr>:<port>`.
+
+    When `--replicas` is specified, the given replication factor will try
+    to be matched. For example, `--replicas 5` will sync with 5 seeds.
+
+    When `--fetch` or `--announce` are specified on their own, this command
+    will only fetch or announce.
+
+    If `--inventory` is specified, the node's inventory is announced to
+    the network. This mode does not take an `<rid>`.
+"#;
+
+const SYNC_USAGE: &str = r#"  rad sync [--fetch | --announce] [--rid <rid>] [--timeout <secs>] [--debug] [--seed <nid>]
+  rad sync status [--sort-by <field>]
+  rad sync --inventory
+"#;
+
 #[derive(Debug, Clone, PartialEq, Eq, Parser)]
 pub enum Operation {
-    /// Display the whether other nodes are synced our out-of-sync with this
+    /// Display the whether other nodes are synced or out-of-sync with this
     /// node's signed references
     #[command(override_usage = "rad sync status [--sort-by <field>]")]
+    #[clap(help_template = HELP_NO_COMMANDS)]
     Status {
         /// Sort by sync status
         #[arg(long, value_name = "field", value_enum, default_value_t)]
@@ -199,13 +257,13 @@ pub struct SyncModeArgs {
 #[group(required = false, multiple = true, conflicts_with = "inventory")]
 pub struct Directions {
     /// When `--fetch` is specified, any number of seeds may be given
-    /// using the `--seed` option, eg. `--seed <nid>@<addr>:<port>`.
-    #[arg(long)]
+    /// using the `--seed` option, eg. `--seed <nid>@<addr>:<port>` [default: true].
+    #[arg(long, default_value_t = true)]
     fetch: bool,
     /// When `--announce` is specified, this command will announce changes to
     /// the network. Can be used in tandem with `--fetch` to also fetch
-    /// beforehand.
-    #[arg(long)]
+    /// beforehand [default: true].
+    #[arg(long, default_value_t = true)]
     announce: bool,
 }
 
@@ -251,9 +309,10 @@ impl Default for SyncSettings {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Parser)]
+#[command(rename_all = "lowercase")]
 pub struct SyncSettingsArgs {
     /// Sync with at least N replicas.
-    #[arg(long, short, default_value_t = 3)]
+    #[arg(long, short, default_value_t = 3, value_name = "count")]
     pub replicas: usize,
     /// Sync with the given list of seeds.
     #[arg(long = "seed", action = clap::ArgAction::Append, value_name = "nid")]
@@ -296,19 +355,11 @@ impl FromStr for NodeId {
 }
 
 /// Sync repositories to and from the network
-#[derive(Debug, Parser)]
-#[command(name = "rad")]
-#[command(bin_name = "rad sync")]
-#[command(version = "1.0.0")]
-#[command(override_usage(
-    "
-  rad sync [--fetch | --announce] [--rid <rid>] [--timeout <secs>] [--debug] [--seed <nid>]
-  rad sync status [--sort-by <field>]
-  rad sync --inventory
-"
-))]
-#[command(rename_all = "lowercase")]
-pub struct Options {
+#[derive(Debug, Clone, PartialEq, Eq, Parser)]
+#[command(override_usage(SYNC_USAGE))]
+#[command(after_help = SYNC_HELP)]
+#[clap(help_template = HELP_TEMPLATE)]
+pub struct Sync {
     /// Repository Identifier to be synchronized
     #[arg(long, global = true, value_name = "rid")]
     pub rid: Option<RepoId>,
@@ -324,4 +375,20 @@ pub struct Options {
     pub settings: SyncSettingsArgs,
     #[command(subcommand)]
     pub op: Option<Operation>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Commands {
+    Sync(Sync),
+}
+
+/// Radicle command line interface
+#[derive(Debug, Parser)]
+#[clap(help_template = HELP_TEMPLATE)]
+#[command(version = "nix-0be7453")]
+#[command(propagate_version = true)]
+#[command(override_usage(r#"rad <command> [--help | -h]"#))]
+pub struct Options {
+    #[command(subcommand)]
+    cmds: Commands,
 }

@@ -1,5 +1,5 @@
 use clap::Parser;
-use sync::Options;
+use rad::Options;
 
 fn main() {
     let opts = Options::parse();
